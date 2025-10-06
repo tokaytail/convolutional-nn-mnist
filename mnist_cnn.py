@@ -315,6 +315,31 @@ for epoch in range(5):
 
 print("Finished training")
 
+# Define the path to save the model
+PATH = "./mnist_cnn.pth"
+
+# How it works?
+# net.state_dict(): This function returns an ordered dictionary that maps each
+# layer of your model to its learned parameters (weights and biases). It
+# contains all the "knowledge" your model has gained during training.
+#
+# torch.save(object, PATH): This function takes the object (in this case, the
+# state_dict dictionary) and saves it to your disk using Python's pickle
+# utility. The common convention for the file extension is .pth or .pt.
+#
+# How to load the model?
+# 1. Instantiate your model architecture:
+# net = Net()
+#
+# 2. Load the state_dict from the file:
+# net.load_state_dict(torch.load(PATH))
+#
+# 3. Set the model to evaluation mode (this is important for consistent results # during inference):
+# net.eval()
+torch.save(net.state_dict(), PATH)
+
+print(f"Model saved to {PATH}")
+
 correct = 0
 total = 0
 
