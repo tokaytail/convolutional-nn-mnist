@@ -219,5 +219,7 @@ class Net(nn.Module):
         # use (CrossEntropyLoss) expects raw logits.
         x = self.fc2(x)
 
-        # The method returns the final tensor of shape [batch_size, 10], where each row contains the 10 scores for a single image in the batch. The highest score corresponds to the model's prediction for that image.
+        # The method returns the final tensor of shape [batch_size, 10], where
+        # each row contains the 10 scores for a single image in the batch. The
+        # highest score corresponds to the model's prediction for that image.
         return x
