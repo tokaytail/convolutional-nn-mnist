@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
 
@@ -201,7 +202,6 @@ class Net(nn.Module):
         x = x.view(-1, 32 * 7 * 7)
 
         # FIRST FULLY CONNECTED LAYER
-        #
         # self.fc1(x): The layer transforms the 1568 input features into 128
         # output features.
         #
@@ -211,7 +211,6 @@ class Net(nn.Module):
         x = F.relu(self.fc1(x))
 
         # OUTPUT LAYER
-        #
         # Finally, the tensor is passed through the second and final linear
         # layer. This layer maps the 128 features to the 10 output classes,
         # producing the final raw scores (logits) for each class. No
@@ -223,3 +222,163 @@ class Net(nn.Module):
         # each row contains the 10 scores for a single image in the batch. The
         # highest score corresponds to the model's prediction for that image.
         return x
+
+
+net = Net()
+
+# TRAINING THE CNN MODEL
+# criterion = nn.CrossEntropyLoss(): This defines the loss function. Its job is
+# to measure how far off your model's prediction is from the actual correct
+# label. CrossEntropyLoss is the standard choice for multi-class classification
+# problems like MNIST. It takes the model's raw output scores (logits) and the
+# correct labels and computes a single number representing the error or "loss."
+criterion = nn.CrossEntropyLoss()
+
+# optimizer = optim.SGD(...): This defines the optimizer. Its job is to update
+# the model's weights and biases to reduce the loss.
+#
+# optim.SGD: Here we are using Stochastic Gradient Descent, a classic and
+# effective optimization algorithm.
+#
+# net.parameters(): This tells the optimizer which values it is allowed to
+# modify—all the learnable parameters of your network.
+#
+# lr=0.001: The learning rate. This is one of the most important
+# hyperparameters. It controls how large the steps are that the optimizer takes
+# to update the weights. Too large, and it might overshoot the best solution;
+# too small, and training will be very slow.
+#
+# momentum=0.9: Momentum helps the optimizer accelerate in the correct
+# direction and overcome small local minima, often leading to faster and better
+# training. Think of a ball rolling down a hill; it builds up momentum and
+# doesn't get stuck in small divots.
+optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+
+# TRAINING LOOPS
+# The Outer Loop (Epochs): An epoch is one complete pass through the entire
+# training dataset. The code for epoch in range(5): means you will loop over
+# all the training data a total of 5 times.
+for epoch in range(5):
+    running_loss = 0.0
+
+    # The Inner Loop (Batches): It's computationally expensive to process the
+    # whole dataset at once. So, the trainloader breaks the data into smaller
+    # batches. This inner loop iterates over each batch until it has seen all
+    # the data in the dataset.
+    for i, data in enumerate(trainloader, 0):
+        # inputs, labels = data simply unpacks each batch
+        # into the images and their corresponding correct labels. The variable
+        # data has the form of [image, label] here.
+        inputs, labels = data
+
+        # optimizer.zero_grad(): RESET THE GRADIENTS. By default, PyTorch
+        # accumulates gradients. This line is crucial because it clears the old
+        # gradients from the previous batch. If you didn't do this, you'd be
+        # accumulating gradients from all the batches, which would corrupt the
+        # learning process.
+        optimizer.zero_grad()
+
+        # outputs = net(inputs): FORWARD PASS. The batch of inputs (images) is
+        # passed through the network, which performs all the calculations
+        # defined in your forward() method and produces a tensor of output
+        # scores.
+        outputs = net(inputs)
+
+        # loss = criterion(outputs, labels): CALCULATE LOSS. The criterion
+        # (CrossEntropyLoss) compares the network's outputs with the
+        # ground-truth labels to calculate how wrong the network was for this
+        # specific batch.
+        loss = criterion(outputs, labels)
+
+        # loss.backward(): BACKWARD PASS. This is the most magical step.
+        # PyTorch's autograd engine calculates the gradient of the loss with
+        # respect to every single learnable parameter in our network. These
+        # gradients tell the optimizer how to adjust each parameter to reduce
+        # the loss.
+        loss.backward()
+
+        # optimizer.step(): UPDATE WEIGHTS. The optimizer uses the gradients
+        # computed in the backward pass to update all the network's weights and
+        # biases, taking a small step in the direction that will minimize the
+        # loss.
+        optimizer.step()
+
+        # LOGGING THE PROCESS
+        # This code accumulates the loss for 200 batches and then prints the
+        # average, giving you a real-time update on how well the model is
+        # learning. It then resets the running_loss to start counting for the
+        # next 200 batches.
+        running_loss += loss.item()
+        if i % 200 == 199:
+            print(f"[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 200:.3f}")
+            running_loss = 0.0
+
+print("Finished training")
+
+correct = 0
+total = 0
+
+# DISABLING GRADIENT CALCULATION
+# This is a context manager that tells PyTorch not to calculate gradients for
+# any of the operations inside this block. This is crucial for two reasons:
+# - Efficiency: Calculating gradients is computationally intensive and
+# completely unnecessary during evaluation (also called inference). This makes
+# the code run significantly faster and use less memory.
+# - Correctness: It ensures that you are only testing the model. Without it,
+# you could accidentally alter the model's learned weights.
+with torch.no_grad():
+    # This loop iterates through the testloader, which serves up batches of
+    # images and their corresponding correct labels from the test set. This
+    # part is identical to how the training loop gets its data.
+    for data in testloader:
+        images, labels = data
+
+        # MAKING PREDICTIONS
+        # This is where the model's predictions are generated and interpreted.
+        #
+        # outputs = net(images): This is the forward pass. The batch of test
+        # images is fed into the network (net), which produces a tensor of raw
+        # output scores (logits). The shape of outputs will be [batch_size, 10].
+        #
+        # _, predicted = torch.max(outputs.ata, 1): This line finds the most
+        # likely class for each image.
+        #
+        # torch.max is a function that finds the maximum value along a
+        # specified dimension of a tensor. We give it outputs.data along dim=1
+        # (the dimension corresponding to the 10 classes). This means for each
+        # image, it finds the class with the highest score.
+        # torch.max returns two things: the maximum value (the score itself)
+        # and the index of that value. The index corresponds to the predicted
+        # class (e.g., an index of 7 means the model predicted the digit '7').
+        # We only care about the index, so we assign the actual value to a
+        # throwaway variable _ and store the index in predicted.
+        outputs = net(images)
+        _, predicted = torch.max(outputs.data, 1)
+
+        # COUNTING CORRECT PREDICTIONS
+        # total += labels.size(0): labels.size(0) gives the number of labels in
+        # the current batch (i.e., the batch size). This is added to the total
+        # count.
+        total += labels.size(0)
+
+        # correct += (predicted == labels).sum().item(): This is a clever
+        # one-liner.
+        #
+        # (predicted == labels): This compares the tensor of predictions with
+        # the tensor of true labels element-wise. It produces a boolean tensor
+        # like [True, False, True, True, ...], where True marks a correct
+        # prediction.
+        #
+        # .sum(): When you sum a boolean tensor, True is treated as 1 and False # as 0. This effectively counts the number of True values, giving us
+        # the number of correct predictions in the batch.
+        #
+        # .item(): The result of .sum() is a PyTorch tensor containing a single
+        # number. .item() extracts this number as a standard Python integer,
+        # which can then be added to our correct counter.
+        correct += (predicted == labels).sum().item()
+
+# CALCULATING FINAL ACCURACY
+# After the loop has processed all the test batches, this line calculates and
+# prints the final accuracy using the standard formula:
+# Accuracy = Total Correct Predictions / Total Predictions * 100
+print(f"Accuracy of the CNN on the 10000 test images: {100 * correct / total}%")
